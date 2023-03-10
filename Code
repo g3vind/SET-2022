@@ -1,0 +1,694 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[110]:
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
+from sklearn import feature_extraction, model_selection, preprocessing
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import plot_confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+import string
+import nltk
+
+
+# In[111]:
+
+
+Dfake = pd.read_csv('Fake.csv')
+Dtrue = pd.read_csv('True.csv')
+
+
+# In[112]:
+
+
+Dfake.shape, Dtrue.shape
+
+
+# In[113]:
+
+
+Dfake['Class'] = 'fakeData'
+Dtrue['Class'] = 'trueData'
+
+
+# In[114]:
+
+
+dataset_1 = pd.concat([Dfake,Dtrue]).reset_index(drop = True)
+dataset_1.shape
+
+
+# In[115]:
+
+
+dataset_1.head(15)
+
+
+# In[116]:
+
+
+dataset_1.drop(['date'], axis = 1, inplace = True)
+dataset_1.head()
+
+
+# In[117]:
+
+
+dataset_1.drop(['title'], axis = 1, inplace = True)
+dataset_1.head()
+
+
+# In[118]:
+
+
+dataset_1.drop(['subject'], axis = 1, inplace = True)
+dataset_1.head()
+
+
+# In[119]:
+
+
+dataset_2 = pd.read_csv('train.csv')
+
+
+# In[120]:
+
+
+dataset_2.shape
+
+
+# In[121]:
+
+
+dataset_2.rename(columns = {'label':'Class'}, inplace = True)
+dataset_2.head()
+
+
+# In[122]:
+
+
+dataset_2['Class'] = dataset_2['Class'].replace([1 , 0], ['trueData', 'fakeData'])
+
+
+# In[123]:
+
+
+dataset_2.head(15)
+
+
+# In[124]:
+
+
+dataset_2.drop(['id'], axis = 1, inplace = True)
+
+
+# In[125]:
+
+
+dataset_2.drop(['title'], axis = 1, inplace = True)
+
+
+# In[126]:
+
+
+dataset_2.drop(['author'], axis = 1, inplace = True)
+
+
+# In[127]:
+
+
+dataset_2.head()
+
+
+# In[128]:
+
+
+final_dataset = pd.concat([dataset_1,dataset_2]).reset_index(drop = True)
+final_dataset.shape
+
+
+# In[129]:
+
+
+from sklearn.utils import shuffle
+final_dataset = shuffle(final_dataset)
+final_dataset = final_dataset.reset_index(drop = True)
+
+
+# In[130]:
+
+
+final_dataset['text'] = final_dataset['text'].str.lower()
+
+
+# In[131]:
+
+
+final_dataset.head(10)
+
+
+# In[132]:
+
+
+final_dataset['text'] = final_dataset['text'].astype(str)
+
+
+# In[133]:
+
+
+def delete_punctuation(text):
+    total_data = [char for char in text if char not in string.punctuation]
+    final_str = ''.join(total_data)
+    return final_str
+
+final_dataset['text'] = final_dataset['text'].apply(delete_punctuation)
+
+
+# In[134]:
+
+
+final_dataset.head(10)
+
+
+# In[135]:
+
+
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+swords = stopwords.words('english')
+final_dataset['text']  = final_dataset['text'].apply(lambda x: ' '.join([word for word in x.split() if word not in (swords)]))
+
+
+# In[136]:
+
+
+final_dataset.head(15)
+
+
+# In[137]:
+
+
+print(final_dataset.groupby(['Class'])['text'].count())
+final_dataset.groupby(['Class'])['text'].count().plot(kind = 'bar', color = 'orange')
+plt.show()
+
+
+# In[182]:
+
+
+x_train, x_test, y_train, y_test = train_test_split(final_dataset['text'], final_dataset.Class, test_size = 0.3, random_state = 42)
+
+
+# In[139]:
+
+
+#Logistic_Regression Algo
+dt = dict()
+from sklearn.linear_model import LogisticRegression
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', LogisticRegression())])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Logistic Regression Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+dt['Logistic Regression'] = round(accuracy_score(y_test, Pred)*100, 2)
+
+
+# In[140]:
+
+
+cm = confusion_matrix(y_test, Pred, labels = ['fakeData', 'trueData'])
+disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels= ['fakeData', 'trueData'])
+disp.plot()
+plt.show()
+
+
+# In[141]:
+
+
+print(classification_report(y_test, Pred))
+
+
+# In[183]:
+
+
+#Decision_Tree
+from sklearn.tree import DecisionTreeClassifier
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', DecisionTreeClassifier(criterion = 'entropy',max_depth = 20, splitter = 'best', random_state = 42))])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Decision Tree Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+dt['Decision Tree'] = round(accuracy_score(y_test, Pred)*100, 2)
+
+
+# In[184]:
+
+
+cm = confusion_matrix(y_test, Pred, labels = ['fakeData', 'trueData'])
+disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels= ['fakeData', 'trueData'])
+disp.plot()
+plt.show()
+
+
+# In[185]:
+
+
+print(classification_report(y_test, Pred))
+
+
+# In[144]:
+
+
+#RandomForest
+
+from sklearn.ensemble import RandomForestClassifier
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', RandomForestClassifier(n_estimators = 50, criterion = 'entropy'))])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Random Forest Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+dt['Random Forest'] = round(accuracy_score(y_test, Pred)*100, 2)
+
+
+# In[145]:
+
+
+cm = confusion_matrix(y_test, Pred, labels = ['fakeData', 'trueData'])
+disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels= ['fakeData', 'trueData'])
+disp.plot()
+plt.show()
+
+
+# In[146]:
+
+
+print(classification_report(y_test, Pred))
+
+
+# In[147]:
+
+
+#NaiveBayes
+from sklearn.naive_bayes import MultinomialNB
+
+NB_classifier = MultinomialNB()
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', NB_classifier)])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Naive Bayes Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+dt['Naive Bayes'] = round(accuracy_score(y_test, Pred)*100, 2)
+
+
+# In[148]:
+
+
+cm = confusion_matrix(y_test, Pred, labels = ['fakeData', 'trueData'])
+disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels= ['fakeData', 'trueData'])
+disp.plot()
+plt.show()
+
+
+# In[149]:
+
+
+print(classification_report(y_test, Pred))
+
+
+# In[150]:
+
+
+#XGBoost
+from xgboost import XGBClassifier
+
+clf = XGBClassifier(random_state=42, seed=2, colsample_bytree=0.6, subsample=0.7)
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', clf)])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of XGBoost Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+dt['XGBoost'] = round(accuracy_score(y_test, Pred)*100, 2)
+
+
+# In[151]:
+
+
+cm = confusion_matrix(y_test, Pred, labels = ['fakeData', 'trueData'])
+disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels= ['fakeData', 'trueData'])
+disp.plot()
+plt.show()
+
+
+# In[152]:
+
+
+print(classification_report(y_test, Pred))
+
+
+# In[153]:
+
+
+#PassiveAggressiveClassifier
+
+from sklearn.linear_model import PassiveAggressiveClassifier
+
+clf = PassiveAggressiveClassifier(max_iter = 1000)
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', clf)])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of PassiveAggressive Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+dt['PassiveAggressive'] = round(accuracy_score(y_test, Pred)*100, 2)
+
+
+# In[154]:
+
+
+cm = confusion_matrix(y_test, Pred, labels = ['fakeData', 'trueData'])
+disp = ConfusionMatrixDisplay(confusion_matrix = cm, display_labels= ['fakeData', 'trueData'])
+disp.plot()
+plt.show()
+
+
+# In[155]:
+
+
+print(classification_report(y_test, Pred))
+
+
+# In[187]:
+
+
+plt.figure(figsize=(12,7), facecolor = 'orange')
+plt.bar(list(dt.keys()),list(dt.values()), color = 'green')
+plt.ylim(80,100)
+plt.yticks((80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100))
+
+
+# In[157]:
+
+
+#Dataset1 - For Comparison
+
+from sklearn.utils import shuffle
+dataset_1 = shuffle(dataset_1)
+dataset_1 = dataset_1.reset_index(drop = True)
+
+
+# In[158]:
+
+
+dataset_1['text'] = dataset_1['text'].str.lower()
+
+
+# In[159]:
+
+
+dataset_1['text'] = dataset_1['text'].astype(str)
+
+
+# In[160]:
+
+
+def delete_punctuation(text):
+    total_data = [char for char in text if char not in string.punctuation]
+    final_str = ''.join(total_data)
+    return final_str
+
+dataset_1['text'] = dataset_1['text'].apply(delete_punctuation)
+
+
+# In[161]:
+
+
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+swords = stopwords.words('english')
+dataset_1['text']  = dataset_1['text'].apply(lambda x: ' '.join([word for word in x.split() if word not in (swords)]))
+
+
+# In[162]:
+
+
+x_train, x_test, y_train, y_test = train_test_split(dataset_1['text'], dataset_1.Class, test_size = 0.3, random_state = 42)
+
+
+# In[163]:
+
+
+#Logistic_Regression Algo
+
+from sklearn.linear_model import LogisticRegression
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', LogisticRegression())])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Logistic Regression Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[164]:
+
+
+#Decision_Tree
+from sklearn.tree import DecisionTreeClassifier
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', DecisionTreeClassifier(criterion = 'entropy',max_depth = 20, splitter = 'best', random_state = 42))])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Decision Tree Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[165]:
+
+
+#RandomForest
+
+from sklearn.ensemble import RandomForestClassifier
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', RandomForestClassifier(n_estimators = 50, criterion = 'entropy'))])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Random Forest Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[166]:
+
+
+#NaiveBayes
+from sklearn.naive_bayes import MultinomialNB
+
+NB_classifier = MultinomialNB()
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', NB_classifier)])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Naive Bayes Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[167]:
+
+
+#XGBoost
+from xgboost import XGBClassifier
+
+clf = XGBClassifier(random_state=42, seed=2, colsample_bytree=0.6, subsample=0.7)
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', clf)])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of XGBoost Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[168]:
+
+
+#PassiveAggressiveClassifier
+
+from sklearn.linear_model import PassiveAggressiveClassifier
+
+clf = PassiveAggressiveClassifier(max_iter = 1000)
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', clf)])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of PassiveAggressive Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[188]:
+
+
+#Dataset2 - For Comparison
+
+from sklearn.utils import shuffle
+dataset_2 = shuffle(dataset_2)
+dataset_2 = dataset_1.reset_index(drop = True)
+
+
+# In[189]:
+
+
+dataset_2['text'] = dataset_2['text'].str.lower()
+
+
+# In[190]:
+
+
+dataset_2['text'] = dataset_2['text'].astype(str)
+
+
+# In[191]:
+
+
+def delete_punctuation(text):
+    total_data = [char for char in text if char not in string.punctuation]
+    final_str = ''.join(total_data)
+    return final_str
+
+dataset_2['text'] = dataset_2['text'].apply(delete_punctuation)
+
+
+# In[192]:
+
+
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+swords = stopwords.words('english')
+dataset_2['text']  = dataset_2['text'].apply(lambda x: ' '.join([word for word in x.split() if word not in (swords)]))
+
+
+# In[193]:
+
+
+x_train, x_test, y_train, y_test = train_test_split(dataset_2['text'], dataset_2.Class, test_size = 0.3, random_state = 42)
+
+
+# In[194]:
+
+
+#Logistic_Regression Algo
+
+from sklearn.linear_model import LogisticRegression
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', LogisticRegression())])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Logistic Regression Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[195]:
+
+
+#Decision_Tree
+from sklearn.tree import DecisionTreeClassifier
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', DecisionTreeClassifier(criterion = 'entropy',max_depth = 20, splitter = 'best', random_state = 42))])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Decision Tree Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[196]:
+
+
+#RandomForest
+
+from sklearn.ensemble import RandomForestClassifier
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', RandomForestClassifier(n_estimators = 50, criterion = 'entropy'))])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Random Forest Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[197]:
+
+
+#NaiveBayes
+from sklearn.naive_bayes import MultinomialNB
+
+NB_classifier = MultinomialNB()
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', NB_classifier)])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of Naive Bayes Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[198]:
+
+
+#XGBoost
+from xgboost import XGBClassifier
+
+clf = XGBClassifier(random_state=42, seed=2, colsample_bytree=0.6, subsample=0.7)
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', clf)])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of XGBoost Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
+
+# In[199]:
+
+
+#PassiveAggressiveClassifier
+
+from sklearn.linear_model import PassiveAggressiveClassifier
+
+clf = PassiveAggressiveClassifier(max_iter = 1000)
+
+pipe = Pipeline([('Cvect', CountVectorizer()), ('Tfidf', TfidfTransformer()), ('Model', clf)])
+
+Model = pipe.fit(x_train, y_train)
+Pred = Model.predict(x_test)
+
+print("Accuracy of PassiveAggressive Algo: {}%".format(round(accuracy_score(Pred, y_test)*100, 2)))
+
